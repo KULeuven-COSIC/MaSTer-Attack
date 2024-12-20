@@ -1,0 +1,68 @@
+import numpy as np
+from scipy.linalg import toeplitz
+
+class Dense:
+    def __init__(self, input_size, output_size, activation=None):
+        self.input_size = input_size
+        self.output_size = output_size
+        self.activation = activation
+
+        # Initialize weights and biases
+        self.weights = [
+            np.random.rand(input_size, output_size) * 0.01,  # Weights of shape (input_size, output_size)
+            np.zeros(output_size)  # Biases of shape (output_size,)
+        ]
+
+    def forward(self, input_data):
+        z = np.dot(input_data, self.weights[0]) + self.weights[1]
+
+        # Apply activation function if specified
+        if self.activation:
+            return self.activation(z)
+        return z
+    
+
+class Conv2D:
+    def __init__(self, input_shape, filter_size, num_filters, activation=None):
+        self.input_shape = input_shape
+        self.filter_size = filter_size
+        self.num_filters = num_filters
+        self.activation = activation
+        
+        # Initialize weights and biases
+        self.weights = [
+            np.random.rand(filter_size, filter_size, input_shape[-1], num_filters) * 0.01,  # Filter weights
+            np.zeros(num_filters)  # Biases
+        ]
+
+    def forward(self, input_data):
+        batch_size, height, width, channels = input_data.shape
+        output_height = height - self.filter_size + 1
+        output_width = width - self.filter_size + 1
+        output = np.zeros((batch_size, output_height, output_width, self.num_filters))
+
+        # Convolution operation
+        for b in range(batch_size):
+            for f in range(self.num_filters):
+                for i in range(output_height):
+                    for j in range(output_width):
+                        region = input_data[b, i:i + self.filter_size, j:j + self.filter_size, :]
+                        output[b, i, j, f] = np.sum(region * self.weights[0][:, :, :, f]) + self.weights[1][f]
+
+        # Apply activation function if specified
+        if self.activation:
+            output = self.activation(output)
+
+        return output
+    
+
+class Flatten:
+    def forward(self, input_data):
+        # Save the original shape for potential use in backward pass
+        print(input_data.shape)
+        self.input_shape = input_data.shape
+        # Flatten the input data
+        print('here and now, shape: ', self.input_shape)
+        return input_data.reshape(self.input_shape[0], -1)
+    
+
