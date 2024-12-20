@@ -20,6 +20,23 @@ class Dense:
         if self.activation:
             return self.activation(z)
         return z
+
+    def forward_attack(self, input_data, attack_type, attack_reference):
+        
+        if attack_type == 'layer_output_matching':
+            # Compute attack matrix, based om the reference
+            attack_matrix = np.dot(input_data, self.weights[0]) - attack_reference
+
+            # Clip the values of attack_matrix to the range [-limit, +limit]
+            limit = input_data.shape[1] * self.weights[0].shape[0]
+            attack_matrix = np.clip(attack_matrix, -limit, limit)
+
+        z = np.dot(input_data, self.weights[0]) + attack_matrix + self.weights[1]
+
+        # Apply activation function if specified
+        if self.activation:
+            return self.activation(z)
+        return z
     
 
 class Conv2D:
