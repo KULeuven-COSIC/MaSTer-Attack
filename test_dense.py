@@ -26,6 +26,9 @@ def train_and_save_model():
     # Train the model
     model.fit(x_train, y_train, epochs=5, batch_size=64, validation_split=0.2)
 
+    # test_samples = x_test[:10]
+    # print(model.predict(test_samples))
+
     # Save the model weights
     model.save('mnist_dnn_model.h5')
 
@@ -59,8 +62,8 @@ def run_inference_with_tf_model(model, input_data):
     return model.predict(input_data)
 
 # Run inference with the custom model
-def run_inference_with_custom_model(custom_model, input_data):
-    return custom_model.forward(input_data)
+def run_inference_with_custom_model(custom_model, input_data, fixed_point):
+    return custom_model.forward(input_data, fixed_point=fixed_point)
 
 # Test model inference
 def test_model_inference():
@@ -87,17 +90,24 @@ def test_model_inference():
     tf_outputs = run_inference_with_tf_model(tf_model, test_samples)
 
     # Get predictions from custom neural network model
-    custom_outputs = run_inference_with_custom_model(custom_model, test_samples)
+    custom_outputs = run_inference_with_custom_model(custom_model, test_samples, fixed_point = None)
+
+    # Get predictions from custom neural network model - testing fixed-point
+    custom_outputs_fixed = run_inference_with_custom_model(custom_model, test_samples, fixed_point=16)
 
     # Compare the outputs
     print("TensorFlow outputs:\n", tf_outputs)
     print("Custom model outputs:\n", custom_outputs)
+    print("Custom model outputs with fixed_point:\n", custom_outputs_fixed)
 
     # Check if the outputs are similar (allowing for small numerical differences)
     are_outputs_similar = np.allclose(tf_outputs, custom_outputs, rtol=1e-5)
+    are_outputs_similar1 = np.allclose(tf_outputs, custom_outputs_fixed, rtol=1e-2)
+    print(tf_outputs-custom_outputs_fixed)
 
     # Assert that the outputs are similar and raise an error with a message if not
     assert are_outputs_similar, "The outputs from the TensorFlow model and the custom model are not similar!"
+    assert are_outputs_similar1, "The outputs from the TensorFlow model and the custom model with fixed_point are not similar!"
 
 if __name__ == "__main__":
     test_model_inference()

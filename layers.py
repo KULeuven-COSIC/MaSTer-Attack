@@ -1,6 +1,12 @@
 import numpy as np
 from scipy.linalg import toeplitz
 
+def encode_fixed(data, precision):
+        return np.floor(data * 2**precision)
+
+def decode_fixed(data, precision):
+        return data/2**precision
+
 class Dense:
     def __init__(self, input_size, output_size, activation=None):
         self.input_size = input_size
@@ -13,25 +19,42 @@ class Dense:
             np.zeros(output_size)  # Biases of shape (output_size,)
         ]
 
-    def forward(self, input_data):
-        z = np.dot(input_data, self.weights[0]) + self.weights[1]
+    def forward(self, input_data, fixed_point):
+        if fixed_point != None:
+            z = np.dot(encode_fixed(input_data, fixed_point), encode_fixed(self.weights[0], fixed_point)) / (2**fixed_point) + encode_fixed(self.weights[1], fixed_point)
+            z = decode_fixed(z, fixed_point)
+        else:
+            z = np.dot(input_data, self.weights[0]) + self.weights[1]
 
         # Apply activation function if specified
         if self.activation:
             return self.activation(z)
         return z
 
-    def forward_attack(self, input_data, attack_type, attack_reference):
+    def forward_attack(self, input_data, attack_type, attack_reference, fixed_point):
         
         if attack_type == 'layer_output_matching':
-            # Compute attack matrix, based om the reference
-            attack_matrix = np.dot(input_data, self.weights[0]) - attack_reference
+            # Compute fixed-point attack matrix, based om the reference
+            if fixed_point != None:
+                # attack_matrix = np.dot(encode_fixed(input_data, fixed_point), encode_fixed(self.weights[0], fixed_point))  / (2**fixed_point) - encode_fixed(attack_reference, fixed_point)
+                attack_matrix1 = encode_fixed(np.dot(input_data, self.weights[0]) - attack_reference, fixed_point)
+                # Clip the values of attack_matrix to the range [-limit, +limit]
+                assert input_data.shape[1] == self.weights[0].shape[0]
+                limit = input_data.shape[1] * 2**fixed_point 
+                attack_matrix = np.clip(attack_matrix1, -limit, limit)
+            else:
+                attack_matrix = np.dot(input_data, self.weights[0]) - attack_reference
 
-            # Clip the values of attack_matrix to the range [-limit, +limit]
-            limit = input_data.shape[1] * self.weights[0].shape[0]
-            attack_matrix = np.clip(attack_matrix, -limit, limit)
+                # Clip the values of attack_matrix to the range [-limit, +limit]
+                limit = input_data.shape[1] * self.weights[0].shape[0]
+                attack_matrix = np.clip(attack_matrix, -limit, limit)
 
-        z = np.dot(input_data, self.weights[0]) + attack_matrix + self.weights[1]
+        if fixed_point != None:
+            z = np.dot(encode_fixed(input_data, fixed_point), encode_fixed(self.weights[0], fixed_point)) / (2**fixed_point) + encode_fixed(self.weights[1], fixed_point) + attack_matrix
+            z = decode_fixed(z, fixed_point)
+            print(self.activation(z))
+        else:
+            z = np.dot(input_data, self.weights[0]) + self.weights[1] + attack_matrix
 
         # Apply activation function if specified
         if self.activation:
@@ -52,7 +75,7 @@ class Conv2D:
             np.zeros(num_filters)  # Biases
         ]
 
-    def forward(self, input_data):
+    def forward(self, input_data, fixed_point):
         batch_size, height, width, channels = input_data.shape
         output_height = height - self.filter_size + 1
         output_width = width - self.filter_size + 1
@@ -74,7 +97,7 @@ class Conv2D:
     
 
 class Flatten:
-    def forward(self, input_data):
+    def forward(self, input_data, fixed_point):
         # Save the original shape for potential use in backward pass
         print(input_data.shape)
         self.input_shape = input_data.shape

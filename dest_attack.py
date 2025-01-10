@@ -93,7 +93,7 @@ class ModelInitializer:
 # Inference runner
 class InferenceRunner:
     @staticmethod
-    def run_inference_on_label_batch(model, x_data, y_data, target_label, return_all_outputs=False):
+    def run_inference_on_label_batch(model, x_data, y_data, target_label, return_all_outputs, fixed_point):
         """
         Run inference on all samples of a specific label and compute average outputs.
 
@@ -112,15 +112,14 @@ class InferenceRunner:
         inputs = x_data[indices]
 
         if return_all_outputs:
-            all_layer_outputs = model.forward(inputs, return_all_outputs=True)
+            all_layer_outputs = model.forward(inputs, return_all_outputs=True, fixed_point=fixed_point)
             avg_outputs = [np.mean(layer_output, axis=0) for layer_output in all_layer_outputs]
             return avg_outputs
         else:
-            final_output = model.forward(inputs, return_all_outputs=False)
-            return np.mean(final_output, axis=0)
+            return model.forward(inputs, return_all_outputs=False, fixed_point=fixed_point)
 
     @staticmethod
-    def run_inference_on_all_models(models_info, target_label, return_all_outputs=False):
+    def run_inference_on_all_models(models_info, target_label, return_all_outputs=False, fixed_point=None):
         """
         Run inference on all models and compute outputs for a specific label.
 
@@ -144,14 +143,14 @@ class InferenceRunner:
             (x_train, y_train), _ = DataLoader.load_data(dataset_name)
 
             print(f"Running inference for {model_name} on label {target_label} images.")
-            outputs = InferenceRunner.run_inference_on_label_batch(model, x_train, y_train, target_label, return_all_outputs)
+            outputs = InferenceRunner.run_inference_on_label_batch(model, x_train, y_train, target_label, return_all_outputs, fixed_point)
             results[model_name] = outputs
 
         return results
 
 class AttackRunner:
     @staticmethod
-    def run_attack_on_all_models(models_info, target_label, return_all_outputs, attack_type, attack_reference):
+    def run_attack_on_all_models(models_info, target_label, return_all_outputs, attack_type, attack_reference, fixed_point):
         """
         Run attack on all models and compute outputs for a specific label.
 
@@ -168,7 +167,7 @@ class AttackRunner:
         results = {}
 
         for model_name, model_path in models_info:
-            print(f"Running attack on model {model_name} for label {target_label}")
+            print(f"Running attack on model {model_name} for label {target_label} with fixed-point precision {fixed_point}")
 
             model = ModelInitializer.initialize_model(model_name)
             WeightLoader.load_weights_and_biases(model, model_path)
@@ -179,8 +178,9 @@ class AttackRunner:
             indices = np.where(y_train != target_label)[0]
             inputs = x_train[indices]
 
-            outputs = model.forward_attack(inputs, return_all_outputs, attack_type, attack_reference[model_name])
+            outputs = model.forward_attack(inputs, return_all_outputs, attack_type, attack_reference[model_name], fixed_point)
             results[model_name] = outputs
+            1/0
 
         return results
 
@@ -202,7 +202,9 @@ if __name__ == '__main__':
 
     for target_label in range(10):
         print(f"Running attack for label {target_label}")
-        attack_rate[f"attack_rate_{target_label}"] = AttackRunner.run_attack_on_all_models(models_info, target_label, return_all_outputs=False, attack_type=attack_type, attack_reference=reference_matrices[f"reference_matrices_{target_label}"])
-    print(attack_rate[f"attack_rate_1"]['DNN_3_layers'][0])
+        attack_rate[f"attack_rate_{target_label}"] = AttackRunner.run_attack_on_all_models(models_info, target_label, return_all_outputs=False, attack_type=attack_type, attack_reference=reference_matrices[f"reference_matrices_{target_label}"], fixed_point = 8 )
+    print(attack_rate[f"attack_rate_1"]['DNN_5_layers'][:10])
+    print(attack_rate[f"attack_rate_1"]['DNN_CIFAR10'][:10])
 
-    # NEED TO DO NOW: IMPLEMENT FIXED-POINT ARITHEMMTIC (INTEGERS) AND ADJUST THE ATTACK BASED ON PRECISION
+
+# THE RETURN_ALL_OUTPUTS RETURNS OUTPUTS OF EACH LAYER AFTER ACTIVATION - NEED TO CHANGE THIS !!!
