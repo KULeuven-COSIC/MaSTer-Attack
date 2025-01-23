@@ -19,7 +19,7 @@ class Dense:
             np.zeros(output_size)  # Biases of shape (output_size,)
         ]
 
-    def forward(self, input_data, fixed_point):
+    def forward(self, input_data, return_all_outputs, fixed_point):
         if fixed_point != None:
             z = np.dot(encode_fixed(input_data, fixed_point), encode_fixed(self.weights[0], fixed_point)) / (2**fixed_point) + encode_fixed(self.weights[1], fixed_point)
             z = decode_fixed(z, fixed_point)
@@ -28,19 +28,23 @@ class Dense:
 
         # Apply activation function if specified
         if self.activation:
-            return self.activation(z)
-        return z
+            y = self.activation(z)
+            return y, z
+        return z, z
 
-    def forward_attack(self, input_data, attack_type, attack_reference, fixed_point):
+    def forward_attack(self, input_data, attack_type, attack_reference, fixed_point, optimised):
         
         if attack_type == 'layer_output_matching':
             # Compute fixed-point attack matrix, based om the reference
             if fixed_point != None:
                 # attack_matrix = np.dot(encode_fixed(input_data, fixed_point), encode_fixed(self.weights[0], fixed_point))  / (2**fixed_point) - encode_fixed(attack_reference, fixed_point)
-                attack_matrix1 = encode_fixed(np.dot(input_data, self.weights[0]) - attack_reference, fixed_point)
+                attack_matrix1 = encode_fixed(attack_reference - np.dot(input_data, self.weights[0]), fixed_point)
                 # Clip the values of attack_matrix to the range [-limit, +limit]
                 assert input_data.shape[1] == self.weights[0].shape[0]
-                limit = input_data.shape[1] * 2**fixed_point 
+                if optimised:
+                    limit = 1
+                else:
+                    limit = input_data.shape[1] 
                 attack_matrix = np.clip(attack_matrix1, -limit, limit)
             else:
                 attack_matrix = np.dot(input_data, self.weights[0]) - attack_reference
@@ -52,7 +56,6 @@ class Dense:
         if fixed_point != None:
             z = np.dot(encode_fixed(input_data, fixed_point), encode_fixed(self.weights[0], fixed_point)) / (2**fixed_point) + encode_fixed(self.weights[1], fixed_point) + attack_matrix
             z = decode_fixed(z, fixed_point)
-            print(self.activation(z))
         else:
             z = np.dot(input_data, self.weights[0]) + self.weights[1] + attack_matrix
 
@@ -75,7 +78,7 @@ class Conv2D:
             np.zeros(num_filters)  # Biases
         ]
 
-    def forward(self, input_data, fixed_point):
+    def forward(self, input_data, return_all_outputs,  fixed_point):
         batch_size, height, width, channels = input_data.shape
         output_height = height - self.filter_size + 1
         output_width = width - self.filter_size + 1
@@ -91,18 +94,16 @@ class Conv2D:
 
         # Apply activation function if specified
         if self.activation:
-            output = self.activation(output)
+            act_output = self.activation(output)
 
-        return output
+        return act_output, output
     
 
 class Flatten:
-    def forward(self, input_data, fixed_point):
+    def forward(self, input_data, return_all_outputs, fixed_point):
         # Save the original shape for potential use in backward pass
-        print(input_data.shape)
         self.input_shape = input_data.shape
         # Flatten the input data
-        print('here and now, shape: ', self.input_shape)
-        return input_data.reshape(self.input_shape[0], -1)
+        return input_data.reshape(self.input_shape[0], -1), []
     
 

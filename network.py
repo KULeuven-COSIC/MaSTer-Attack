@@ -20,17 +20,17 @@ class Network:
         
         # Perform the forward pass, storing layer outputs
         for layer in self.layers:
-            data = layer.forward(data, fixed_point)
+            data, outputs = layer.forward(data, return_all_outputs, fixed_point) # Outputs after and before activation respectively 
             # Check if the layer is Dense or Conv2D and store the output if true
             if isinstance(layer, (Dense, Conv2D)):
-                self.layer_outputs.append(data)
+                self.layer_outputs.append(outputs)
         
         # Return based on the flag
         if return_all_outputs:
             return self.layer_outputs
         return data  # Final output
 
-    def forward_attack(self, input_data, return_all_outputs, attack_type, attack_reference, fixed_point=None): 
+    def forward_attack(self, input_data, return_all_outputs, attack_type, attack_reference, fixed_point=None, optimised=False): 
         """
         If return_all_outputs is set, the function returns a list of outputs of all multiplicative layers rather than the final output only
         """
@@ -41,11 +41,11 @@ class Network:
         # Perform the forward pass, storing layer outputs
         for layer in self.layers:
             if isinstance(layer, (Dense, Conv2D)):
-                data = layer.forward_attack(data, attack_type, attack_reference[i], fixed_point)
+                data = layer.forward_attack(data, attack_type, attack_reference[i], fixed_point, optimised)
                 self.layer_outputs.append(data)
                 i += 1
             else:
-                data = layer.forward(data, fixed_point)
+                data, data1 = layer.forward(data, return_all_outputs, fixed_point)
         
         # Return based on the flag
         if return_all_outputs:

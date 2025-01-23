@@ -1,7 +1,14 @@
 import os
 import numpy as np
+import pandas as pd 
 import tensorflow as tf
+import seaborn as sns
+import matplotlib.pyplot as plt
 from tensorflow.keras import models, layers
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import confusion_matrix
+from data_loader import DataLoader
 
 # Function to save model weights and biases to a text file
 def save_weights_to_txt(model, directory):
@@ -29,25 +36,64 @@ def save_weights_and_biases(model, directory):
             # Save biases
             np.save(os.path.join(directory, f"layer_{i}_biases.npy"), layer.weights[1])
 
+def save_correctly_classified_samples(model, x_data, y_data, predictions, model_name, dataset_dir="datasets"):
+    # Get the predicted labels
+    predicted_labels = np.argmax(predictions, axis=1)
+    print(predictions[:10])
+    print(predicted_labels[:10])
+
+    # Ensure the dataset directory exists
+    os.makedirs(f"{dataset_dir}/{model_name}", exist_ok=True)
+
+    # Process each label (0 to 4 in the MITBIH dataset)
+    for label in np.unique(y_data):
+        # Identify samples where the true label matches the predicted label
+        correct_classification = (y_data == label) & (predicted_labels == label)
+        
+        # Get the correctly classified samples
+        correctly_classified_samples = x_data[correct_classification]
+        
+        # If there are correctly classified samples, save them to a CSV file
+        if correctly_classified_samples.shape[0] > 0:
+            label_dir = f"{dataset_dir}/{model_name}/label_{label}"
+            os.makedirs(label_dir, exist_ok=True)
+
+             # Dynamically flatten if the data is more than 2D
+            if len(correctly_classified_samples.shape) > 2:  # More than 2D
+                flat_samples = correctly_classified_samples.reshape(correctly_classified_samples.shape[0], -1)
+            else:
+                flat_samples = correctly_classified_samples  # Already 2D
+
+            # Save these samples as a .npy file
+            sample_file = os.path.join(label_dir, f"label_{label}_correct.npy")
+            np.save(sample_file, flat_samples)
+
 # Function to train and save DNNs on MNIST
 def train_mnist_models():
     # Load MNIST dataset
-    (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
-    x_train = x_train.reshape(-1, 28 * 28).astype('float32') / 255
-    x_test = x_test.reshape(-1, 28 * 28).astype('float32') / 255
+    x_train, y_train, x_test, y_test = DataLoader.load_mnist_data()
 
     # Define models
     models_info = [
-        ("DNN_3_layers", [
+        ("DNN_3_MNIST", [
             layers.Dense(128, activation='relu', input_shape=(784,)),
             layers.Dense(64, activation='relu'),
             layers.Dense(10, activation='softmax')
         ]),
-        ("DNN_5_layers", [
+        ("DNN_5_MNIST", [
             layers.Dense(256, activation='relu', input_shape=(784,)),
             layers.Dense(128, activation='relu'),
             layers.Dense(64, activation='relu'),
             layers.Dense(32, activation='relu'),
+            layers.Dense(10, activation='softmax')
+        ]),
+        ("DNN_7_MNIST", [
+            layers.Dense(512, activation='relu', input_shape=(784,)),
+            layers.Dense(256, activation='relu'),
+            layers.Dense(128, activation='relu'),
+            layers.Dense(64, activation='relu'),
+            layers.Dense(32, activation='relu'),
+            layers.Dense(16, activation='relu'),
             layers.Dense(10, activation='softmax')
         ])
     ]
@@ -61,6 +107,12 @@ def train_mnist_models():
         model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
         model.fit(x_train, y_train, epochs=10, batch_size=128, validation_split=0.1)
 
+        # Make predictions on the test set
+        predictions = model.predict(x_test)
+
+        # Save correctly classified samples for each label
+        save_correctly_classified_samples(model, x_test, y_test, predictions, model_name)
+
         # Save the whole model
         model.save(os.path.join(model_dir, f"{model_name}.h5"))
 
@@ -70,21 +122,17 @@ def train_mnist_models():
 # Function to create and train CNNs on CIFAR-10
 def train_cifar10_models():
     # Load CIFAR-10 dataset
-    (x_train, y_train), (x_test, y_test) = tf.keras.datasets.cifar10.load_data()
-    x_train = x_train.astype('float32') / 255
-    x_test = x_test.astype('float32') / 255
-    y_train = y_train.flatten()  # Flatten labels
-    y_test = y_test.flatten()  # Flatten labels
+    x_train, y_train, x_test, y_test = DataLoader.load_cifar10_data()
 
     # Define models
     models_info = [
-        ("DNN_CIFAR10", [
+        ("DNN_3_CIFAR10", [
             layers.Flatten(input_shape=(32, 32, 3)),
             layers.Dense(512, activation='relu'),
             layers.Dense(256, activation='relu'),
             layers.Dense(10, activation='softmax')
         ]),
-        ("LeNet5", [
+        ("LeNet5_CIFAR10", [
             layers.Conv2D(6, (5, 5), activation='tanh', input_shape=(32, 32, 3)),
             layers.Conv2D(16, (5, 5), activation='tanh'),
             layers.Flatten(),
@@ -92,23 +140,23 @@ def train_cifar10_models():
             layers.Dense(84, activation='tanh'),
             layers.Dense(10, activation='softmax')
         ])
-        # ,
-        # ("AlexNet", [
-        #     layers.Conv2D(96, (5, 5), activation='relu', input_shape=(32, 32, 3), strides=1, padding='same'),
-        #     layers.MaxPooling2D(pool_size=(3, 3), strides=2, padding='valid'),
-        #     layers.Conv2D(256, (5, 5), activation='relu', padding='same'),
-        #     layers.MaxPooling2D(pool_size=(3, 3), strides=2, padding='valid'),
-        #     layers.Conv2D(384, (3, 3), activation='relu', padding='same'),
-        #     layers.Conv2D(384, (3, 3), activation='relu', padding='same'),
-        #     layers.Conv2D(256, (3, 3), activation='relu', padding='same'),
-        #     layers.MaxPooling2D(pool_size=(3, 3), strides=2, padding='valid'),
-        #     layers.Flatten(),
-        #     layers.Dense(4096, activation='relu'),
-        #     layers.Dropout(0.5),
-        #     layers.Dense(4096, activation='relu'),
-        #     layers.Dropout(0.5),
-        #     layers.Dense(10, activation='softmax')
-        # ])
+        ,
+        ("AlexNet", [
+            layers.Conv2D(96, (5, 5), activation='relu', input_shape=(32, 32, 3), strides=1, padding='same'),
+            layers.MaxPooling2D(pool_size=(3, 3), strides=2, padding='valid'),
+            layers.Conv2D(256, (5, 5), activation='relu', padding='same'),
+            layers.MaxPooling2D(pool_size=(3, 3), strides=2, padding='valid'),
+            layers.Conv2D(384, (3, 3), activation='relu', padding='same'),
+            layers.Conv2D(384, (3, 3), activation='relu', padding='same'),
+            layers.Conv2D(256, (3, 3), activation='relu', padding='same'),
+            layers.MaxPooling2D(pool_size=(3, 3), strides=2, padding='valid'),
+            layers.Flatten(),
+            layers.Dense(4096, activation='relu'),
+            layers.Dropout(0.5),
+            layers.Dense(4096, activation='relu'),
+            layers.Dropout(0.5),
+            layers.Dense(10, activation='softmax')
+        ])
     ]
 
     # Train and save each model
@@ -118,7 +166,156 @@ def train_cifar10_models():
 
         model = models.Sequential(layer_list)
         model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-        model.fit(x_train, y_train, epochs=10, batch_size=128, validation_split=0.1)
+        model.fit(x_train, y_train, epochs=20, batch_size=128, validation_split=0.1)
+
+        # Make predictions on the test set
+        predictions = model.predict(x_test)
+
+        # Save correctly classified samples for each label
+        save_correctly_classified_samples(model, x_test, y_test, predictions, model_name)
+
+        # Save the whole model
+        model.save(os.path.join(model_dir, f"{model_name}.h5"))
+
+        # Save weights and biases to text files
+        save_weights_and_biases(model, model_dir)
+
+def train_mitbih_models():
+    x_train, y_train, testX, testy = DataLoader.load_mitbih_data()
+    
+    # Define models
+    models_info = [
+        ("DNN_5_MITBIH", [
+            layers.Dense(50, activation='relu'),
+            layers.Dense(50, activation='relu'),
+            layers.Dense(50, activation='relu'),
+            layers.Dense(50, activation='relu'),
+            layers.Dense(5, activation='softmax'),
+        ])
+    ]
+
+    # Train and save each model
+    for model_name, layer_list in models_info:
+        model_dir = f"models/mitbih/{model_name}"
+        os.makedirs(model_dir, exist_ok=True)
+
+        model = models.Sequential(layer_list)
+        model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+        model.fit(x_train, y_train, epochs=20, batch_size=128, validation_data=(valX, valy))
+
+         # Make predictions on the test set
+        predictions = model.predict(testX)
+        predicted_labels = np.argmax(predictions, axis=1)  # Get predicted labels
+        if len(testy.shape) > 1 and testy.shape[1] > 1:
+            true_labels = np.argmax(testy, axis=1)  # Convert to single-label format
+        else:
+            true_labels = testy
+        
+        cm = confusion_matrix(true_labels, predicted_labels)
+    
+        # Plot the confusion matrix as a heatmap
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=False, xticklabels=np.arange(5), yticklabels=np.arange(5))
+        plt.title('Confusion Matrix')
+        plt.xlabel('Predicted Label')
+        plt.ylabel('True Label')
+        plt.show()
+
+        # Identify misclassifications where the true label is not 0 but predicted label is 0
+        misclassified_to_zero = (true_labels != 0) & (predicted_labels == 0)
+        total_misclassified_to_zero = np.sum(misclassified_to_zero)
+        
+        # Calculate the percentage
+        total_non_zero_labels = np.sum(true_labels != 0)
+        percentage_misclassified_to_zero = (total_misclassified_to_zero / total_non_zero_labels) * 100
+        
+        
+        print(f"Percentage of non-zero labels misclassified as 0: {percentage_misclassified_to_zero:.2f}%")
+
+        testy =  np.argmax(testy, axis=1)
+
+        # Save correctly classified samples for each label
+        save_correctly_classified_samples(model, testX, testy, predictions, model_name)
+
+        # Save the whole model
+        model.save(os.path.join(model_dir, f"{model_name}.h5"))
+
+        # Save weights and biases to text files
+        save_weights_and_biases(model, model_dir)
+
+def train_voice_models():
+    x_train, y_train = DataLoader.load_voice_data()
+
+    # X = dataframe.drop('label',axis=1)
+    # y = dataframe[['label']]
+    
+    # Define models
+    models_info = [
+        ("DNN_5_VOICE", [
+            layers.Dense(256, activation='relu'),
+            layers.Dense(128, activation='relu'),
+            layers.Dense(128, activation='relu'),
+            layers.Dense(64, activation='relu'),
+            layers.Dense(1, activation='sigmoid'),
+        ])
+    ]
+
+    # Train and save each model
+    for model_name, layer_list in models_info:
+        model_dir = f"models/voice/{model_name}"
+        os.makedirs(model_dir, exist_ok=True)
+
+        model = models.Sequential(layer_list)
+        model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+        model.fit(x_train, y_train, epochs=50, batch_size=128, validation_split=0.1)
+
+        # Make predictions on the test set
+        predictions = model.predict(x_train)
+
+        # Convert predictions to binary (0 or 1)
+        binary_predictions = (predictions > 0.5).astype(int)
+
+        # Convert binary predictions to one-hot encoding
+        one_hot_predictions = np.zeros((binary_predictions.shape[0], 2))
+        one_hot_predictions[np.arange(binary_predictions.shape[0]), binary_predictions.flatten()] = 1
+
+        # Save correctly classified samples for each label
+        save_correctly_classified_samples(model, x_train, y_train, one_hot_predictions, model_name)
+
+        # Save the whole model
+        model.save(os.path.join(model_dir, f"{model_name}.h5"))
+
+        # Save weights and biases to text files
+        save_weights_and_biases(model, model_dir)
+
+def train_obesity_models():
+    x_train, y_train = DataLoader.load_obesity_data()
+    
+    # Define models
+    models_info = [
+        ("DNN_5_OBESITY", [
+            layers.Dense(128, activation='relu'),
+            layers.Dense(64, activation='relu'),
+            layers.Dense(64, activation='relu'),
+            layers.Dense(32, activation='relu'),
+            layers.Dense(7, activation='softmax'),
+        ])
+    ]
+
+    # Train and save each model
+    for model_name, layer_list in models_info:
+        model_dir = f"models/obesity/{model_name}"
+        os.makedirs(model_dir, exist_ok=True)
+
+        model = models.Sequential(layer_list)
+        model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+        model.fit(x_train, y_train, epochs=100, batch_size=32, validation_split=0.2)
+
+        # Make predictions on the test set
+        predictions = model.predict(x_train)
+
+        # Save correctly classified samples for each label
+        save_correctly_classified_samples(model, x_train, y_train, predictions, model_name)
 
         # Save the whole model
         model.save(os.path.join(model_dir, f"{model_name}.h5"))
@@ -129,3 +326,6 @@ def train_cifar10_models():
 if __name__ == "__main__":
     train_mnist_models()
     train_cifar10_models()
+    train_mitbih_models()
+    train_voice_models()
+    train_obesity_models()
