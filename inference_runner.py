@@ -19,19 +19,20 @@ class InferenceRunner:
             np.ndarray: Average outputs of each layer if return_all_outputs is True.
             np.ndarray: Average final output if return_all_outputs is False.
         """
-        
 
         inputs = np.load(label_data_file)
 
         if return_all_outputs:
-            all_layer_outputs = model.forward(inputs, return_all_outputs=True, fixed_point=fixed_point)
-            avg_outputs = [np.mean(layer_output, axis=0) for layer_output in all_layer_outputs]
-            return avg_outputs
+            # all_layer_outputs = model.forward(inputs, return_all_outputs=True, fixed_point=fixed_point)
+            # avg_outputs = [np.mean(layer_output, axis=0) for layer_output in all_layer_outputs]
+            avg_input = np.mean(inputs, axis=0, keepdims=True) 
+            outputs_from_avg_input = model.forward(avg_input, return_all_outputs=True, fixed_point=fixed_point)
+            return outputs_from_avg_input
         else:
             return model.forward(inputs, return_all_outputs=False, fixed_point=fixed_point)
 
     @staticmethod
-    def run_inference_on_all_models(models_info, target_label, return_all_outputs=False, fixed_point=None):
+    def run_inference_on_all_models(models_info, target_label, attack_type, return_all_outputs=False, fixed_point=None):
         """
         Run inference on all models and compute outputs for a specific label.
 
@@ -49,33 +50,10 @@ class InferenceRunner:
         model = ModelInitializer.initialize_model(model_name)
         DataLoader.load_weights_and_biases(model, model_path)
 
-        label_data_file = f"datasets/{model_name}/label_{target_label}/label_{target_label}_correct.npy"
-
-        # if dataset_name == "mnist" or dataset_name == "cifar10":
-        #     (X, Y), _ = DataLoader.load_data(dataset_name)
-        # elif dataset_name == "mitbih":
-        #     mit_test_data = pd.read_csv('data/mitbih_test.csv', header=None)
-        #     X, Y = mit_test_data.iloc[: , :-1], mit_test_data.iloc[: , -1]
-        #     Y = to_categorical(Y)
-        #     Y = np.argmax(Y, axis=1)
-        # elif dataset_name == "voice":
-        #     dataframe = pd.read_csv('data/voice.csv')
-
-        #     dict = {'label':{'male':1,'female':0}}  
-        #     dataframe.replace(dict,inplace = True)        
-        #     X = dataframe.loc[:, dataframe.columns != 'label']
-        #     Y = dataframe.loc[:,'label']
-        # elif dataset_name == "obesity":
-        #     df = pd.read_csv('data/Obesity prediction.csv')
-
-        #     # Initialize label encoders and store them in a dictionary
-        #     label_encoders = {}
-        #     for column in df.select_dtypes(include=['object']).columns:
-        #         label_encoders[column] = LabelEncoder()
-        #         df[column] = label_encoders[column].fit_transform(df[column])
-
-        #     X = df.drop('Obesity', axis=1)
-        #     Y = df['Obesity']
+        if attack_type == "layer_output_matching":
+            label_data_file = f"datasets/{model_name}/label_{target_label}/label_{target_label}_correct.npy"
+        elif attack_type == "adversarial_example":
+            label_data_file = f"adv_datasets/{dataset_name}/{model_name}/FGSM/label_{target_label}_adversarial.npy"
 
         print(f"Running inference for {model_name} on label {target_label} images.")
         outputs = InferenceRunner.run_inference_on_label_batch(model, label_data_file, return_all_outputs, fixed_point)

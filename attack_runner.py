@@ -27,14 +27,18 @@ class AttackRunner:
         model = ModelInitializer.initialize_model(model_name)
         DataLoader.load_weights_and_biases(model, model_path)
 
-        label_files = [
-            f"datasets/{model_name}/label_{label}/label_{label}_correct.npy"
-            for label in range(len(LABEL_RANGES[dataset_name]))
-            if label != target_label
-        ]
+        if attack_type == "layer_output_matching":
+            label_files = [
+                f"datasets/{model_name}/label_{label}/label_{label}_correct.npy"
+                for label in range(len(LABEL_RANGES[dataset_name]))
+                if label != target_label
+            ]
+            # Load and concatenate all the data for non-target labels
+            inputs = np.concatenate([np.load(file) for file in label_files], axis=0)
+        elif attack_type == "adversarial_example":
+            # For adversarial examples, run attack on a specific label to see how many are misclasified
+            inputs = np.load(f"adv_datasets/{dataset_name}/{model_name}/FGSM/label_{target_label}_correct.npy")
 
-        # Load and concatenate all the data for non-target labels
-        inputs = np.concatenate([np.load(file) for file in label_files], axis=0)
 
         # if dataset_name == "mnist" or dataset_name == "cifar10":
         #     (X, Y), _ = DataLoader.load_data(dataset_name)
@@ -64,6 +68,9 @@ class AttackRunner:
 
         # indices = np.where(Y != target_label)[0]
         # inputs = np.array(X)[indices]
+
+        check = model.forward(inputs)
+        print(check)
 
         outputs = model.forward_attack(inputs, return_all_outputs, attack_type, attack_reference, fixed_point, optimised)
 

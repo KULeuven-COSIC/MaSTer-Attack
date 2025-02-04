@@ -6,9 +6,10 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from tensorflow.keras import models, layers
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
+
 from sklearn.metrics import confusion_matrix
 from data_loader import DataLoader
+from model_init import ModelInitializer
 
 # Function to save model weights and biases to a text file
 def save_weights_to_txt(model, directory):
@@ -38,9 +39,10 @@ def save_weights_and_biases(model, directory):
 
 def save_correctly_classified_samples(model, x_data, y_data, predictions, model_name, dataset_dir="datasets"):
     # Get the predicted labels
+    if model_name == 'DNN_5_VOICE':
+        print(predictions)
+        print(np.argmax(predictions, axis=1))
     predicted_labels = np.argmax(predictions, axis=1)
-    print(predictions[:10])
-    print(predicted_labels[:10])
 
     # Ensure the dataset directory exists
     os.makedirs(f"{dataset_dir}/{model_name}", exist_ok=True)
@@ -179,6 +181,7 @@ def train_cifar10_models():
 
         # Save weights and biases to text files
         save_weights_and_biases(model, model_dir)
+        
 
 def train_mitbih_models():
     x_train, y_train, testX, testy = DataLoader.load_mitbih_data()
@@ -323,9 +326,101 @@ def train_obesity_models():
         # Save weights and biases to text files
         save_weights_and_biases(model, model_dir)
 
+def train_all_models():
+    dataset_configs = ModelInitializer.get_tf_config()
+
+    for config in dataset_configs:
+        dataset_name = config['dataset_name']
+        data_loader = config['data_loader']
+        models_info = config['models_info']
+
+        # Load dataset
+        data = data_loader()
+        if len(data) == 4:
+            x_train, y_train, x_test, y_test = data
+        elif len(data) == 2:
+            x_train, y_train = data
+            x_test, y_test = None, None
+
+        # Train and save each model
+        for model_name, layer_list in models_info:
+            print(f'Training {model_name}')
+            model_dir = f"models/{dataset_name.lower()}/{model_name}"
+            os.makedirs(model_dir, exist_ok=True)
+
+            model = models.Sequential(layer_list)
+
+            # Determine loss function based on dataset and output
+            if dataset_name == "VOICE":
+                loss_function = 'binary_crossentropy'
+            elif dataset_name == "MITBIH":
+                loss_function = 'categorical_crossentropy'
+            else:
+                loss_function = 'sparse_categorical_crossentropy'
+
+            model.compile(optimizer='adam', loss=loss_function, metrics=['accuracy'])
+
+            # Adjust validation split or data for datasets without test sets
+            if x_test is None:
+                model.fit(x_train, y_train, epochs=50, batch_size=128, validation_split=0.1)
+            else:
+                model.fit(x_train, y_train, epochs=20, batch_size=128, validation_data=(x_test, y_test))
+
+            # Make predictions
+            predictions = model.predict(x_train if x_test is None else x_test)
+
+            if dataset_name == 'MITBIH':
+                y_test_argmax =  np.argmax(y_test, axis=1)
+            else:
+                y_test_argmax = y_test
+
+            if dataset_name == "VOICE":
+                # Convert predictions to binary (0 or 1)
+                binary_predictions = (predictions > 0.5).astype(int)
+
+                # Convert binary predictions to one-hot encoding
+                predictions = np.zeros((binary_predictions.shape[0], 2))
+                predictions[np.arange(binary_predictions.shape[0]), binary_predictions.flatten()] = 1
+
+            # Save correctly classified samples for each label
+            save_correctly_classified_samples(model, x_train if x_test is None else x_test, y_train if y_test_argmax is None else y_test_argmax, predictions, model_name)
+
+            # Save the whole model
+            model.save(os.path.join(model_dir, f"{model_name}.h5"))
+
+            # Save weights and biases to text files
+            save_weights_and_biases(model, model_dir)
+
+            # Additional analysis for MITBIH dataset
+            if dataset_name == "MITBIH" and x_test is not None:
+                predicted_labels = np.argmax(predictions, axis=1)
+                if len(y_test.shape) > 1 and y_test.shape[1] > 1:
+                    true_labels = np.argmax(y_test, axis=1)
+                else:
+                    true_labels = y_test
+
+                cm = confusion_matrix(true_labels, predicted_labels)
+
+                # Plot confusion matrix
+                plt.figure(figsize=(10, 8))
+                sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=False, xticklabels=np.arange(5), yticklabels=np.arange(5))
+                plt.title('Confusion Matrix')
+                plt.xlabel('Predicted Label')
+                plt.ylabel('True Label')
+                plt.show()
+
+                # Calculate percentage of misclassifications
+                misclassified_to_zero = (true_labels != 0) & (predicted_labels == 0)
+                total_misclassified_to_zero = np.sum(misclassified_to_zero)
+                total_non_zero_labels = np.sum(true_labels != 0)
+                percentage_misclassified_to_zero = (total_misclassified_to_zero / total_non_zero_labels) * 100
+
+                print(f"Percentage of non-zero labels misclassified as 0: {percentage_misclassified_to_zero:.2f}%")
+
 if __name__ == "__main__":
-    train_mnist_models()
-    train_cifar10_models()
-    train_mitbih_models()
-    train_voice_models()
-    train_obesity_models()
+    train_all_models()
+    # train_mnist_models()
+    # train_cifar10_models()
+    # train_mitbih_models()
+    # train_voice_models()
+    # train_obesity_models()

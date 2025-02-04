@@ -5,7 +5,7 @@ def encode_fixed(data, precision):
         return np.floor(data * 2**precision)
 
 def decode_fixed(data, precision):
-        return data/2**precision
+        return data/(2**precision)
 
 class Dense:
     def __init__(self, input_size, output_size, activation=None):
@@ -34,7 +34,7 @@ class Dense:
 
     def forward_attack(self, input_data, attack_type, attack_reference, fixed_point, optimised):
         
-        if attack_type == 'layer_output_matching':
+        if attack_type == 'layer_output_matching' or attack_type == "adversarial_example":
             # Compute fixed-point attack matrix, based om the reference
             if fixed_point != None:
                 # attack_matrix = np.dot(encode_fixed(input_data, fixed_point), encode_fixed(self.weights[0], fixed_point))  / (2**fixed_point) - encode_fixed(attack_reference, fixed_point)
@@ -56,11 +56,14 @@ class Dense:
         if fixed_point != None:
             z = np.dot(encode_fixed(input_data, fixed_point), encode_fixed(self.weights[0], fixed_point)) / (2**fixed_point) + encode_fixed(self.weights[1], fixed_point) + attack_matrix
             z = decode_fixed(z, fixed_point)
+            # print("difference: ",z[0]-attack_reference)
         else:
             z = np.dot(input_data, self.weights[0]) + self.weights[1] + attack_matrix
 
         # Apply activation function if specified
         if self.activation:
+            # print('Before activation: ', z[0])
+            # print('After activation: ', self.activation(z)[0])
             return self.activation(z)
         return z
     

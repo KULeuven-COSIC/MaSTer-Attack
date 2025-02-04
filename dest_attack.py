@@ -8,13 +8,17 @@ from model_init import LABEL_RANGES
 # Main function
 if __name__ == '__main__':
     models_info = [
-        ("DNN_3_MNIST", "models/mnist/DNN_3_MNIST", "mnist"),
-        ("DNN_5_MNIST", "models/mnist/DNN_5_MNIST", "mnist"),
-        ("DNN_3_CIFAR10", "models/cifar10/DNN_3_CIFAR10", "cifar10"),
-        ("DNN_5_MITBIH", "models/mitbih/DNN_5_MITBIH", "mitbih"),
-        ("DNN_5_VOICE", "models/voice/DNN_5_VOICE", "voice"),
-        ("DNN_5_OBESITY", "models/obesity/DNN_5_OBESITY", "obesity")
+        ("DNN_3_MNIST", "models/mnist/DNN_3_MNIST", "MNIST"),
+        ("DNN_5_MNIST", "models/mnist/DNN_5_MNIST", "MNIST"),
+        ("DNN_7_MNIST", "models/mnist/DNN_7_MNIST", "MNIST"),
+        ("DNN_3_CIFAR10", "models/cifar10/DNN_3_CIFAR10", "CIFAR10"),
+        ("DNN_3_MITBIH", "models/mitbih/DNN_3_MITBIH", "MITBIH"),
+        ("DNN_5_MITBIH", "models/mitbih/DNN_5_MITBIH", "MITBIH"),
+        ("DNN_5_VOICE", "models/voice/DNN_5_VOICE", "VOICE"),
+        ("DNN_5_OBESITY", "models/obesity/DNN_5_OBESITY", "OBESITY"),
     ]
+
+    attack_type = "layer_output_matching"
 
     reference_matrices = {}
     for model_name, model_path, dataset_name in models_info:
@@ -22,10 +26,9 @@ if __name__ == '__main__':
         for target_label in label_range:
             # print(f"Running inference for {model_name} on label {target_label}")
             key = f"{model_name}_label_{target_label}"
-            reference_matrices[key] = InferenceRunner.run_inference_on_all_models([model_name, model_path, dataset_name], target_label, return_all_outputs=True)
+            reference_matrices[key] = InferenceRunner.run_inference_on_all_models([model_name, model_path, dataset_name], target_label, attack_type, return_all_outputs=True)
 
     attack_rate = {}
-    attack_type = "layer_output_matching"
     optimised=False
 
     # Define the fixed-point precisions to test
@@ -76,5 +79,5 @@ if __name__ == '__main__':
         for key, rate in rates.items():
             print(f"  {key}: Success Rate = {rate:.2%}")
 
-    Visualise.plot_success_rate_by_labels(success_rates)
-    Visualise.plot_success_rate_by_models(success_rates)
+    Visualise.plot_success_rate_by_labels(success_rates, save_dir='label_plots/dest_attack')
+    Visualise.plot_success_rate_by_models(success_rates, save_dir="model_plots/dest_attack")
