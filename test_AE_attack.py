@@ -6,7 +6,7 @@ from attack_runner import AttackRunner
 from inference_runner import InferenceRunner
 from model_init import LABEL_RANGES
 
-def test_attack_on_model(model_name, dataset_name, target_label, precisions=[6, 8], optimised=False):
+def test_attack_on_model(model_name, dataset_name, target_label, precisions=[6, 8], optimised=True):
     """
     Runs an attack on a specific model, targeting a specific label, with chosen fixed-point precisions.
     
@@ -29,7 +29,7 @@ def test_attack_on_model(model_name, dataset_name, target_label, precisions=[6, 
     # Load reference matrix
     key = f"{model_name}_label_{target_label}"
     reference_matrix = InferenceRunner.run_inference_on_all_models(
-        [model_name, model_path, dataset_name], target_label, "adversarial_example", return_all_outputs=True
+        [model_name, model_path, dataset_name], target_label, "adversarial_example_PGD", return_all_outputs=True
     )
 
     print(len(reference_matrix))
@@ -41,7 +41,7 @@ def test_attack_on_model(model_name, dataset_name, target_label, precisions=[6, 
             [model_name, model_path, dataset_name],
             target_label,
             return_all_outputs=False,
-            attack_type="adversarial_example",
+            attack_type="adversarial_example_PGD",
             attack_reference=reference_matrix,
             fixed_point=precision,
             optimised=optimised
@@ -63,5 +63,6 @@ def test_attack_on_model(model_name, dataset_name, target_label, precisions=[6, 
     return attack_results
 
 
-test_attack_on_model("DNN_5_MNIST", "MNIST", target_label=7, precisions=[6])
-test_attack_on_model("DNN_7_MNIST", "MNIST", target_label=7, precisions=[6])
+test_attack_on_model("DNN_3_MNIST", "MNIST", target_label=8, precisions=[4])
+test_attack_on_model("DNN_5_MNIST", "MNIST", target_label=8, precisions=[4])
+test_attack_on_model("DNN_7_MNIST", "MNIST", target_label=8, precisions=[4])

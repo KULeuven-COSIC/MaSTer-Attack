@@ -27,7 +27,7 @@ class AttackRunner:
         model = ModelInitializer.initialize_model(model_name)
         DataLoader.load_weights_and_biases(model, model_path)
 
-        if attack_type == "layer_output_matching":
+        if attack_type == "layer_output_matching" or attack_type == "optimisation_attack":
             label_files = [
                 f"datasets/{model_name}/label_{label}/label_{label}_correct.npy"
                 for label in range(len(LABEL_RANGES[dataset_name]))
@@ -35,42 +35,15 @@ class AttackRunner:
             ]
             # Load and concatenate all the data for non-target labels
             inputs = np.concatenate([np.load(file) for file in label_files], axis=0)
-        elif attack_type == "adversarial_example":
+        elif attack_type == "adversarial_example_PGD":
+            # For adversarial examples, run attack on a specific label to see how many are misclasified
+            inputs = np.load(f"adv_datasets/{dataset_name}/{model_name}/PGD/label_{target_label}_correct.npy")
+        elif attack_type == "adversarial_example_FGSM":
             # For adversarial examples, run attack on a specific label to see how many are misclasified
             inputs = np.load(f"adv_datasets/{dataset_name}/{model_name}/FGSM/label_{target_label}_correct.npy")
 
-
-        # if dataset_name == "mnist" or dataset_name == "cifar10":
-        #     (X, Y), _ = DataLoader.load_data(dataset_name)
-        # elif dataset_name == "mitbih":
-        #     mit_test_data = pd.read_csv('data/mitbih_test.csv', header=None)
-        #     X, Y = mit_test_data.iloc[: , :-1], mit_test_data.iloc[: , -1]
-        #     Y = to_categorical(Y)
-        #     Y = np.argmax(Y, axis=1)
-        # elif dataset_name == "voice":
-        #     dataframe = pd.read_csv('data/voice.csv')
-
-        #     dict = {'label':{'male':1,'female':0}}  
-        #     dataframe.replace(dict,inplace = True)        
-        #     X = dataframe.loc[:, dataframe.columns != 'label']
-        #     Y = dataframe.loc[:,'label']
-        # elif dataset_name == "obesity":
-        #     df = pd.read_csv('data/Obesity prediction.csv')
-
-        #     # Initialize label encoders and store them in a dictionary
-        #     label_encoders = {}
-        #     for column in df.select_dtypes(include=['object']).columns:
-        #         label_encoders[column] = LabelEncoder()
-        #         df[column] = label_encoders[column].fit_transform(df[column])
-
-        #     X = df.drop('Obesity', axis=1)
-        #     Y = df['Obesity']
-
-        # indices = np.where(Y != target_label)[0]
-        # inputs = np.array(X)[indices]
-
-        check = model.forward(inputs)
-        print(check)
+        # check = model.forward(inputs)
+        # print(check[:10])
 
         outputs = model.forward_attack(inputs, return_all_outputs, attack_type, attack_reference, fixed_point, optimised)
 

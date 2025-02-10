@@ -33,10 +33,14 @@ class Dense:
         return z, z
 
     def forward_attack(self, input_data, attack_type, attack_reference, fixed_point, optimised):
-        
-        if attack_type == 'layer_output_matching' or attack_type == "adversarial_example":
-            # Compute fixed-point attack matrix, based om the reference
-            if fixed_point != None:
+
+        # Compute fixed-point attack matrix, based om the reference
+        if fixed_point != None:
+            # print(attack_reference.shape, input_data.shape, self.weights[0].shape)
+            # print(attack_reference)
+            if attack_type == 'optimisation_attack':
+                attack_matrix = encode_fixed(attack_reference, fixed_point)
+            else:
                 # attack_matrix = np.dot(encode_fixed(input_data, fixed_point), encode_fixed(self.weights[0], fixed_point))  / (2**fixed_point) - encode_fixed(attack_reference, fixed_point)
                 attack_matrix1 = encode_fixed(attack_reference - np.dot(input_data, self.weights[0]), fixed_point)
                 # Clip the values of attack_matrix to the range [-limit, +limit]
@@ -46,12 +50,13 @@ class Dense:
                 else:
                     limit = input_data.shape[1] 
                 attack_matrix = np.clip(attack_matrix1, -limit, limit)
-            else:
-                attack_matrix = np.dot(input_data, self.weights[0]) - attack_reference
+                # print('attack matrix: ', attack_matrix.shape)
+        else:
+            attack_matrix = attack_reference - np.dot(input_data, self.weights[0])
 
-                # Clip the values of attack_matrix to the range [-limit, +limit]
-                limit = input_data.shape[1] * self.weights[0].shape[0]
-                attack_matrix = np.clip(attack_matrix, -limit, limit)
+            # Clip the values of attack_matrix to the range [-limit, +limit]
+            limit = input_data.shape[1] * self.weights[0].shape[0]
+            attack_matrix = np.clip(attack_matrix, -limit, limit)
 
         if fixed_point != None:
             z = np.dot(encode_fixed(input_data, fixed_point), encode_fixed(self.weights[0], fixed_point)) / (2**fixed_point) + encode_fixed(self.weights[1], fixed_point) + attack_matrix
@@ -62,8 +67,8 @@ class Dense:
 
         # Apply activation function if specified
         if self.activation:
-            # print('Before activation: ', z[0])
             # print('After activation: ', self.activation(z)[0])
+            # print('Reference after activation: ', self.activation(attack_reference))
             return self.activation(z)
         return z
     

@@ -1,5 +1,6 @@
 import os
 import matplotlib.pyplot as plt
+import tikzplotlib
 
 class Visualise:
     def plot_success_rate_by_models(success_rates, save_dir="model_plots"):
@@ -47,6 +48,8 @@ class Visualise:
             
             # Save the plot in the specified directory
             filename = os.path.join(save_dir, f"{model}_success_rate.png")
+            filename_tikz = os.path.join(save_dir, f"{model}_success_rate.tex")
+            tikzplotlib.save(filename_tikz)
             plt.savefig(filename)
             plt.close()
 
@@ -97,5 +100,7 @@ class Visualise:
             
             # Save the plot in the specified directory
             filename = os.path.join(save_dir, f"{dataset_name}_label_{label}_success_rate.png")
+            filename_tikz = os.path.join(save_dir, f"{dataset_name}_label_{label}_success_rate.tex")
+            tikzplotlib.save(filename_tikz)
             plt.savefig(filename)
             plt.close()

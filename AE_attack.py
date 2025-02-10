@@ -205,7 +205,7 @@ models_info = [
         # ("DNN_5_OBESITY", "models/obesity/DNN_5_OBESITY", "OBESITY")
     ]
 
-attack_type = "adversarial_example"
+attack_type = "adversarial_example_PGD"
 
 reference_matrices = {}
 for model_name, model_path, dataset_name in models_info:
@@ -218,33 +218,11 @@ for model_name, model_path, dataset_name in models_info:
 mnist_model = "DNN_5_MNIST"
 mitbih_model = "DNN_5_MITBIH"
 
-# mnist_last_matrices = {}
-# mitbih_last_matrices = {}
-
-# for key, matrices in reference_matrices.items():
-#     model_name, _, label = key.rsplit("_", 2)  # Extract model name and label
-
-#     if model_name == mnist_model:
-#         mnist_last_matrices[label] = matrices[-1]  # Last matrix for each label
-
-#     elif model_name == mitbih_model:
-#         mitbih_last_matrices[label] = matrices[-1]  # Last matrix for each label
-
-# # Print results
-# print("Last Matrices for MNIST (DNN_5_MNIST):")
-# for label, matrix in mnist_last_matrices.items():
-#     print(f"Label {label}:\n{matrix}\n")
-
-# print("Last Matrices for MITBIH (DNN_5_MITBIH):")
-# for label, matrix in mitbih_last_matrices.items():
-#     print(f"Label {label}:\n{matrix}\n")
-
-
 attack_rate = {}
-optimised=False
+optimised=True
 
 # Define the fixed-point precisions to test
-fixed_point_precisions = [6, 8, 10, 12, 14, 16]
+fixed_point_precisions = [6, 8, 10, 12, 14, 16, 18]
 
 # Store success rates for each precision
 success_rates = {precision: {} for precision in fixed_point_precisions}
@@ -279,17 +257,11 @@ for precision in fixed_point_precisions:
             # Store the success rate
             success_rates[precision][key] = success_rate
 
-# print(attack_rate[f"DNN_3_MNIST_label_1"][:10])
-# print(attack_rate[f"DNN_5_MITBIH_label_2"][:10])
-# print(attack_rate[f"DNN_5_VOICE_label_0"][:10])
-# print(attack_rate[f"DNN_5_VOICE_label_1"][:10])
-# print(attack_rate[f"DNN_5_OBESITY_label_6"][:10])
-
 # Print success rates for verification
 for precision, rates in success_rates.items():
     print(f"Fixed-Point Precision: {precision}")
     for key, rate in rates.items():
         print(f"  {key}: Success Rate = {rate:.2%}")
 
-Visualise.plot_success_rate_by_labels(success_rates, save_dir='label_plots/ae_attack')
-Visualise.plot_success_rate_by_models(success_rates, save_dir='model_plots/ae_attack')
+Visualise.plot_success_rate_by_labels(success_rates, save_dir=f'label_plots/{attack_type}')
+Visualise.plot_success_rate_by_models(success_rates, save_dir=f'model_plots/{attack_type}')

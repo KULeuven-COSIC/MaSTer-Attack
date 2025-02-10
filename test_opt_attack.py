@@ -8,43 +8,46 @@ from model_init import LABEL_RANGES
 # Main function
 if __name__ == '__main__':
     models_info = [
-        ("DNN_3_MNIST", "models/mnist/DNN_3_MNIST", "MNIST"),
+        # ("DNN_3_MNIST", "models/mnist/DNN_3_MNIST", "MNIST"),
         ("DNN_5_MNIST", "models/mnist/DNN_5_MNIST", "MNIST"),
-        ("DNN_7_MNIST", "models/mnist/DNN_7_MNIST", "MNIST"),
-        ("DNN_3_CIFAR10", "models/cifar10/DNN_3_CIFAR10", "CIFAR10"),
-        ("DNN_3_MITBIH", "models/mitbih/DNN_3_MITBIH", "MITBIH"),
-        ("DNN_5_MITBIH", "models/mitbih/DNN_5_MITBIH", "MITBIH"),
-        ("DNN_5_VOICE", "models/voice/DNN_5_VOICE", "VOICE"),
-        ("DNN_5_OBESITY", "models/obesity/DNN_5_OBESITY", "OBESITY"),
+        # ("DNN_7_MNIST", "models/mnist/DNN_7_MNIST", "MNIST"),
+        # ("DNN_3_CIFAR10", "models/cifar10/DNN_3_CIFAR10", "CIFAR10"),
+        # ("DNN_3_MITBIH", "models/mitbih/DNN_3_MITBIH", "MITBIH"),
+        # ("DNN_5_MITBIH", "models/mitbih/DNN_5_MITBIH", "MITBIH"),
+        # ("DNN_5_VOICE", "models/voice/DNN_5_VOICE", "VOICE"),
+        # ("DNN_5_OBESITY", "models/obesity/DNN_5_OBESITY", "OBESITY"),
     ]
 
-    attack_type = "layer_output_matching"
-
-    reference_matrices = {}
-    for model_name, model_path, dataset_name in models_info:
-        label_range = LABEL_RANGES.get(dataset_name)
-        for target_label in label_range:
-            # print(f"Running inference for {model_name} on label {target_label}")
-            key = f"{model_name}_label_{target_label}"
-            reference_matrices[key] = InferenceRunner.run_inference_on_all_models([model_name, model_path, dataset_name], target_label, attack_type, return_all_outputs=True)
-
-    attack_rate = {}
-    optimised=True
+    attack_type = "optimisation_attack"
+    optimised=False
 
     # Define the fixed-point precisions to test
-    fixed_point_precisions = [6, 8, 10, 12, 14, 16, 18]
+    fixed_point_precisions = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 
-    # Store success rates for each precision
+    reference_matrices = {}
+    success_rates = {precision: {} for precision in fixed_point_precisions}
+    for precision in fixed_point_precisions:
+        for model_name, model_path, dataset_name in models_info:
+            label_range = LABEL_RANGES.get(dataset_name)
+            for target_label in label_range:
+                # print(f"Running inference for {model_name} on label {target_label}")
+                key = f"{model_name}_label_{target_label}_precision_{precision}"
+                reference_matrices[key] = InferenceRunner.optimise_reference([model_name, model_path, dataset_name], target_label, fixed_point = precision, optimised=optimised)
+
+    attack_rate = {}
+    
     success_rates = {precision: {} for precision in fixed_point_precisions}
     for precision in fixed_point_precisions:
         for model_name, model_path, dataset_name in models_info:
             label_range = LABEL_RANGES.get(dataset_name)
             for target_label in label_range:
                 # print(f"Running attack on {model_name} for label {target_label}")
+                ref_key = f"{model_name}_label_{target_label}_precision_{precision}"
                 key = f"{model_name}_label_{target_label}"
-                attack_rate[key] = AttackRunner.run_attack_on_all_models([model_name, model_path, dataset_name], target_label, return_all_outputs=False, attack_type=attack_type, attack_reference=reference_matrices[key], fixed_point = precision, optimised=optimised)
-    
+                attack_rate[key] = AttackRunner.run_attack_on_all_models([model_name, model_path, dataset_name], target_label, return_all_outputs=False, attack_type=attack_type, attack_reference=reference_matrices[ref_key], fixed_point = precision, optimised=optimised)
+
                 # Determine the number of classes for interpretation
+                label_range = LABEL_RANGES.get(dataset_name)
                 num_classes = len(label_range)
                 
                 # Process attack results
@@ -79,5 +82,5 @@ if __name__ == '__main__':
         for key, rate in rates.items():
             print(f"  {key}: Success Rate = {rate:.2%}")
 
-    Visualise.plot_success_rate_by_labels(success_rates, save_dir='label_plots/dest_attack')
-    Visualise.plot_success_rate_by_models(success_rates, save_dir="model_plots/dest_attack")
+    Visualise.plot_success_rate_by_labels(success_rates, save_dir='label_plots/opt_attack')
+    Visualise.plot_success_rate_by_models(success_rates, save_dir="model_plots/opt_attack")
