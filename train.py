@@ -10,6 +10,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix
 from data_loader import DataLoader
 from model_init import ModelInitializer
+from visualiser import Visualise
 
 # Function to save model weights and biases to a text file
 def save_weights_to_txt(model, directory):
@@ -60,15 +61,20 @@ def save_correctly_classified_samples(model, x_data, y_data, predictions, model_
             label_dir = f"{dataset_dir}/{model_name}/label_{label}"
             os.makedirs(label_dir, exist_ok=True)
 
-             # Dynamically flatten if the data is more than 2D
-            if len(correctly_classified_samples.shape) > 2:  # More than 2D
-                flat_samples = correctly_classified_samples.reshape(correctly_classified_samples.shape[0], -1)
+            # Dynamically flatten if the data is more than 2D
+            if model_name != 'LeNet5_CIFAR10':
+                if len(correctly_classified_samples.shape) > 2:  # More than 2D
+                    print(model_name, correctly_classified_samples.shape)
+                    flat_samples = correctly_classified_samples.reshape(correctly_classified_samples.shape[0], -1)
+                else:
+                    flat_samples = correctly_classified_samples  # Already 2D
             else:
-                flat_samples = correctly_classified_samples  # Already 2D
+                flat_samples = correctly_classified_samples
 
             # Save these samples as a .npy file
             sample_file = os.path.join(label_dir, f"label_{label}_correct.npy")
             np.save(sample_file, flat_samples)
+
 
 # Function to train and save DNNs on MNIST
 def train_mnist_models():
@@ -134,31 +140,38 @@ def train_cifar10_models():
             layers.Dense(256, activation='relu'),
             layers.Dense(10, activation='softmax')
         ]),
-        ("LeNet5_CIFAR10", [
-            layers.Conv2D(6, (5, 5), activation='tanh', input_shape=(32, 32, 3)),
-            layers.Conv2D(16, (5, 5), activation='tanh'),
-            layers.Flatten(),
-            layers.Dense(120, activation='tanh'),
-            layers.Dense(84, activation='tanh'),
+        ("DNN_5_CIFAR10", [
+            layers.Flatten(input_shape=(32, 32, 3)),
+            layers.Dense(512, activation='relu'),
+            layers.Dense(256, activation='relu'),
+            layers.Dense(256, activation='relu'),
+            layers.Dense(128, activation='relu'),
             layers.Dense(10, activation='softmax')
-        ])
-        ,
-        ("AlexNet", [
-            layers.Conv2D(96, (5, 5), activation='relu', input_shape=(32, 32, 3), strides=1, padding='same'),
-            layers.MaxPooling2D(pool_size=(3, 3), strides=2, padding='valid'),
-            layers.Conv2D(256, (5, 5), activation='relu', padding='same'),
-            layers.MaxPooling2D(pool_size=(3, 3), strides=2, padding='valid'),
-            layers.Conv2D(384, (3, 3), activation='relu', padding='same'),
-            layers.Conv2D(384, (3, 3), activation='relu', padding='same'),
-            layers.Conv2D(256, (3, 3), activation='relu', padding='same'),
-            layers.MaxPooling2D(pool_size=(3, 3), strides=2, padding='valid'),
-            layers.Flatten(),
-            layers.Dense(4096, activation='relu'),
-            layers.Dropout(0.5),
-            layers.Dense(4096, activation='relu'),
-            layers.Dropout(0.5),
-            layers.Dense(10, activation='softmax')
-        ])
+        ]),
+        # ("LeNet5_CIFAR10", [
+        #     layers.Conv2D(6, (5, 5), activation='tanh', input_shape=(32, 32, 3)),
+        #     layers.Conv2D(16, (5, 5), activation='tanh'),
+        #     layers.Flatten(),
+        #     layers.Dense(120, activation='tanh'),
+        #     layers.Dense(84, activation='tanh'),
+        #     layers.Dense(10, activation='softmax')
+        # ]),
+        # ("AlexNet", [
+        #     layers.Conv2D(96, (5, 5), activation='relu', input_shape=(32, 32, 3), strides=1, padding='same'),
+        #     layers.MaxPooling2D(pool_size=(3, 3), strides=2, padding='valid'),
+        #     layers.Conv2D(256, (5, 5), activation='relu', padding='same'),
+        #     layers.MaxPooling2D(pool_size=(3, 3), strides=2, padding='valid'),
+        #     layers.Conv2D(384, (3, 3), activation='relu', padding='same'),
+        #     layers.Conv2D(384, (3, 3), activation='relu', padding='same'),
+        #     layers.Conv2D(256, (3, 3), activation='relu', padding='same'),
+        #     layers.MaxPooling2D(pool_size=(3, 3), strides=2, padding='valid'),
+        #     layers.Flatten(),
+        #     layers.Dense(4096, activation='relu'),
+        #     layers.Dropout(0.5),
+        #     layers.Dense(4096, activation='relu'),
+        #     layers.Dropout(0.5),
+        #     layers.Dense(10, activation='softmax')
+        # ])
     ]
 
     # Train and save each model
@@ -168,7 +181,7 @@ def train_cifar10_models():
 
         model = models.Sequential(layer_list)
         model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-        model.fit(x_train, y_train, epochs=20, batch_size=128, validation_split=0.1)
+        model.fit(x_train, y_train, epochs=50, batch_size=128, validation_split=0.1)
 
         # Make predictions on the test set
         predictions = model.predict(x_test)
@@ -391,6 +404,13 @@ def train_all_models():
             # Save weights and biases to text files
             save_weights_and_biases(model, model_dir)
 
+            # Get statistics on the values inside the model
+            model = ModelInitializer.initialize_model(model_name)
+            DataLoader.load_weights_and_biases(model, model_dir)
+            aggregated_stats = model.forward(x_train if x_test is None else x_test, return_all_outputs=True, fixed_point=16, analysis=True)[1]
+            print(f"Stats for {model_name}: {aggregated_stats['sign_stats']} and {aggregated_stats['truncated_stats']}")
+            Visualise.plot_fixed_point_distribution(aggregated_stats['agg_trunc'], save_dir=f'analysis_plots/{dataset_name}/{model_name}')
+            Visualise.plot_sign_distribution(aggregated_stats['sign_stats'], save_dir=f"analysis_plots/{dataset_name}/{model_name}")
             # Additional analysis for MITBIH dataset
             if dataset_name == "MITBIH" and x_test is not None:
                 predicted_labels = np.argmax(predictions, axis=1)

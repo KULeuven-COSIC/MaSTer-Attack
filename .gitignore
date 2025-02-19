@@ -4,3 +4,5 @@ model_plots/
 label_plots/
 datasets/
 adv_datasets/
+analysis_plots/
+technique_plots/

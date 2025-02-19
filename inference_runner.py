@@ -5,39 +5,137 @@ from tensorflow.keras import layers, models
 from data_loader import DataLoader
 from model_init import ModelInitializer
 from model_init import LABEL_RANGES
+from activation import softmax
+
+def compute_medoid(inputs):
+    """
+    Compute the medoid of the inputs.
+
+    Args:
+        inputs (np.ndarray): Input data with shape (batch_size, ...).
+
+    Returns:
+        np.ndarray: The medoid input with shape (1, ...).
+    """
+    # Flatten each input to a 1D vector.
+    flattened = inputs.reshape(inputs.shape[0], -1)
+    
+    # Compute pairwise Euclidean distances on the flattened data.
+    distances = np.linalg.norm(flattened[:, None] - flattened[None, :], axis=-1)
+    
+    # Sum distances for each sample.
+    sum_distances = distances.sum(axis=1)
+    
+    # Find the index of the medoid.
+    medoid_idx = np.argmin(sum_distances)
+    
+    # Return the medoid preserving the batch dimension.
+    return inputs[medoid_idx:medoid_idx+1]
 
 class InferenceRunner:
     @staticmethod
-    def run_inference_on_label_batch(model, label_data_file, return_all_outputs, fixed_point):
+    def run_inference_on_label_batch(model, inputs, return_all_outputs, fixed_point, technique):
         """
-        Run inference on all samples of a specific label and compute average outputs.
+        Run inference on all samples of a specific label using various techniques
+        to compute a representative sample or output, then compute the model output.
+
+        Techniques:
+            'avg_input'      : Compute the average of the inputs and run inference.
+            'median_input'   : Compute the median of the inputs and run inference.
+            'medoid_input'   : Choose the input (medoid) that minimizes the total distance to all other inputs.
+            'avg_output'     : Run inference on all inputs and average the outputs.
+            'median_output'  : Run inference on all inputs and take the median of the outputs.
+            'medoid_output'  : Run inference on all inputs and select the output (medoid) that minimizes the total distance to all other outputs.
+            'closest_one_hot': Select the sample whose output is closest to the ideal one-hot vector for the predicted class.
+            'random_sample'  : Randomly select one input and run inference.
 
         Args:
             model (Network): The neural network model.
-            x_data (np.ndarray): Input data.
-            y_data (np.ndarray): Corresponding labels.
-            target_label (int): The label for which inference is performed.
-            return_all_outputs (bool): Whether to return outputs for all layers.
+            inputs (np.ndarray): Input data (batch for a specific label).
+            return_all_outputs (bool): Whether model.forward returns outputs for all layers.
+            fixed_point: Parameter passed to model.forward (depends on your model).
+            technique (str): Technique for computing the representative sample or output.
 
         Returns:
-            np.ndarray: Average outputs of each layer if return_all_outputs is True.
-            np.ndarray: Average final output if return_all_outputs is False.
+            np.ndarray or list of np.ndarray: Representative output(s) computed based on the chosen technique.
         """
+        print(technique)
+        if technique == 'avg_input':
+            # Compute the average of inputs along the batch dimension.
+            rep_input = np.mean(inputs, axis=0, keepdims=True)
+            return model.forward(rep_input, return_all_outputs=return_all_outputs, fixed_point=fixed_point)
+
+        elif technique == 'median_input':
+            # Compute the median of inputs along the batch dimension.
+            rep_input = np.median(inputs, axis=0, keepdims=True)
+            return model.forward(rep_input, return_all_outputs=return_all_outputs, fixed_point=fixed_point)
         
+        elif technique == 'medoid_input':
+            rep_input = compute_medoid(inputs)
+            return model.forward(rep_input, return_all_outputs=return_all_outputs, fixed_point=fixed_point)
 
-        inputs = np.load(label_data_file)
+        elif technique in ['avg_output', 'median_output', 'medoid_output']:
+            # Run inference on the whole batch at once.
+            outputs = model.forward(inputs, return_all_outputs=return_all_outputs, fixed_point=fixed_point)
+            
+            if not return_all_outputs:
+                # outputs shape: (batch_size, n)
+                if technique == 'avg_output':
+                    rep_output = np.mean(outputs, axis=0, keepdims=True)
+                elif technique == 'medoid_output':
+                    # Compute medoid in the output space.
+                    rep_output = compute_medoid(outputs)
+                else:
+                    rep_output = np.median(outputs, axis=0, keepdims=True)
+                return rep_output
+            else:
+                # When multiple layers are returned, each element of outputs is an array
+                # with shape (batch_size, n_layer).
+                rep_outputs = []
+                for out in outputs:
+                    if technique == 'avg_output':
+                        rep_out = np.mean(out, axis=0, keepdims=True)
+                    elif technique == 'medoid_output':
+                        # Compute medoid in the output space.
+                        rep_out = compute_medoid(out)
+                    else:
+                        rep_out = np.median(out, axis=0, keepdims=True)
+                    rep_outputs.append(rep_out)
+                return rep_outputs
+            
+        elif technique == 'closest_one_hot':
+            # Run inference on the full batch to obtain final outputs.
+            outputs = model.forward(inputs, return_all_outputs=return_all_outputs, fixed_point=fixed_point)
+            final_outputs = outputs[-1] if return_all_outputs else outputs
+            
+            # Since all samples are correctly classified, their predicted class is the same.
+            # We use the predicted class from the first sample.
+            target_class = np.argmax(final_outputs[0])
+            # Create the ideal one-hot vector.
+            one_hot_target = np.zeros(final_outputs.shape[1], dtype=final_outputs.dtype)
+            one_hot_target[target_class] = 1.0
 
-        if return_all_outputs:
-            avg_input = np.mean(inputs, axis=0, keepdims=True) 
-            # print(inputs.shape, inputs[:1, :].shape, avg_input.shape)
-            # print(model.forward(avg_input, return_all_outputs=False, fixed_point=fixed_point))
-            outputs_from_avg_input = model.forward(avg_input, return_all_outputs=True, fixed_point=fixed_point)
-            return outputs_from_avg_input
+            # Compute the Euclidean distance between each sample's output and the one-hot target.
+            distances = np.linalg.norm(softmax(final_outputs) - one_hot_target, axis=1)
+            best_idx = np.argmin(distances)
+            rep_input = np.expand_dims(inputs[best_idx], axis=0)
+            print(softmax(model.forward(rep_input, return_all_outputs=return_all_outputs, fixed_point=fixed_point)[-1]))
+            return model.forward(rep_input, return_all_outputs=return_all_outputs, fixed_point=fixed_point)
+
+        elif technique == 'random_sample':
+            # Randomly select one input from the batch.
+            random_idx = np.random.randint(0, inputs.shape[0])
+            rep_input = np.expand_dims(inputs[random_idx], axis=0)
+            return model.forward(rep_input, return_all_outputs=return_all_outputs, fixed_point=fixed_point)
+
         else:
-            return model.forward(inputs, return_all_outputs=False, fixed_point=fixed_point)
+            raise ValueError(
+                "Technique not recognized. Please choose from: "
+                "'avg_input', 'median_input', 'avg_output', 'median_output', or 'random_sample'."
+            )
 
     @staticmethod
-    def run_inference_on_all_models(models_info, target_label, attack_type, return_all_outputs=False, fixed_point=None):
+    def run_inference_on_all_models(models_info, target_label, attack_type, return_all_outputs=False, fixed_point=None, technique='avg_input'):
         """
         Run inference on all models and compute outputs for a specific label.
 
@@ -62,8 +160,13 @@ class InferenceRunner:
         elif attack_type == "adversarial_example_PGD":
             label_data_file = f"adv_datasets/{dataset_name}/{model_name}/PGD/label_{target_label}_adversarial.npy"
 
+        inputs = np.load(label_data_file)
+
+        # if model_name == 'LeNet5_CIFAR10':
+        #     inputs = inputs.reshape(-1, 32, 32, 3).astype('float32') / 255
+
         print(f"Running inference for {model_name} on label {target_label} images.")
-        outputs = InferenceRunner.run_inference_on_label_batch(model, label_data_file, return_all_outputs, fixed_point)
+        outputs = InferenceRunner.run_inference_on_label_batch(model, inputs, return_all_outputs, fixed_point, technique)
 
         return outputs
     

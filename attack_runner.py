@@ -5,7 +5,7 @@ from model_init import LABEL_RANGES
 
 class AttackRunner:
     @staticmethod
-    def run_attack_on_all_models(models_info, target_label, return_all_outputs, attack_type, attack_reference, fixed_point, optimised):
+    def run_attack_on_all_models(models_info, target_label, return_all_outputs, attack_type, attack_reference, fixed_point, optimised, budget, realistic):
         """
         Run attack on all models and compute outputs for a specific label.
 
@@ -42,9 +42,12 @@ class AttackRunner:
             # For adversarial examples, run attack on a specific label to see how many are misclasified
             inputs = np.load(f"adv_datasets/{dataset_name}/{model_name}/FGSM/label_{target_label}_correct.npy")
 
+        # if model_name == 'LeNet5_CIFAR10':
+        #     inputs = inputs.reshape(-1, 32, 32, 3).astype('float32') / 255
+
         # check = model.forward(inputs)
         # print(check[:10])
 
-        outputs = model.forward_attack(inputs, return_all_outputs, attack_type, attack_reference, fixed_point, optimised)
+        outputs = model.forward_attack(inputs, return_all_outputs, attack_type, attack_reference, fixed_point, optimised, budget, realistic)
 
         return outputs
