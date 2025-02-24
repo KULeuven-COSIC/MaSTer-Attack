@@ -17,11 +17,23 @@ def compute_medoid(inputs):
     Returns:
         np.ndarray: The medoid input with shape (1, ...).
     """
-    # Flatten each input to a 1D vector.
-    flattened = inputs.reshape(inputs.shape[0], -1)
+    print("Input shape:", inputs.shape)
     
-    # Compute pairwise Euclidean distances on the flattened data.
-    distances = np.linalg.norm(flattened[:, None] - flattened[None, :], axis=-1)
+    # Flatten each input if necessary.
+    if len(inputs.shape) > 2:
+        flattened = inputs.reshape(inputs.shape[0], -1)
+    else:
+        flattened = inputs
+
+    # Compute squared norms of each sample.
+    squared_norms = np.sum(flattened ** 2, axis=1)
+    
+    # Compute the squared distances using the vectorized formula.
+    # This produces an (n, n) array.
+    distances_sq = squared_norms[:, None] + squared_norms[None, :] - 2 * np.dot(flattened, flattened.T)
+    
+    # Ensure no negative values due to numerical issues, then take square roots.
+    distances = np.sqrt(np.maximum(distances_sq, 0))
     
     # Sum distances for each sample.
     sum_distances = distances.sum(axis=1)

@@ -3,6 +3,22 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tikzplotlib
 
+def parse_key(key):
+    """
+    Parses a key in one of the following formats:
+    - "modelName_label_targetLabel_tech_technique"
+    - "modelName_label_targetLabel"
+    Returns:
+    model_name, target_label, technique (or None if not present)
+    """
+    if "_tech_" in key:
+        model_name, remainder = key.split("_label_", 1)
+        target_label, technique = remainder.split("_tech_", 1)
+    else:
+        model_name, target_label = key.split("_label_", 1)
+        technique = None
+    return model_name, target_label, technique
+
 class Visualise:
     def plot_success_rate_by_models(success_rates, save_dir="model_plots"):
         """
@@ -104,6 +120,116 @@ class Visualise:
             filename_tikz = os.path.join(save_dir, f"{dataset_name}_label_{label}_success_rate.tex")
             tikzplotlib.save(filename_tikz)
             plt.savefig(filename)
+            plt.close()
+
+
+    def plot_success_rate_by_labels_and_datasets(success_rates, save_dir="plots"):
+        """
+        Generates two sets of plots:
+        1. Per dataset-label plots: For each (dataset, label) pair, plot success rates of different models.
+        2. Average plots: For each dataset, plot the average success rate across labels per model.
+
+        The function supports keys in two formats:
+        - With technique: "modelName_label_targetLabel_tech_technique"
+        - Without technique: "modelName_label_targetLabel"
+        
+        Args:
+            success_rates (dict): Structure {precision: {"key": success_rate}}
+            save_dir (str): Base directory for saving plots.
+        """
+        # Create directories to store plots
+        label_plots_dir = os.path.join(save_dir, "by_label")
+        avg_plots_dir = os.path.join(save_dir, "average")
+        os.makedirs(label_plots_dir, exist_ok=True)
+        os.makedirs(avg_plots_dir, exist_ok=True)
+        
+        # # -------------------------------------
+        # # 1. Create per dataset-label plots.
+        # # -------------------------------------
+        # # Group keys by (dataset, target_label)
+        # dataset_label_to_models = {}  # {(dataset, target_label): set(model_name)}
+        # for precision in success_rates:
+        #     for key in success_rates[precision]:
+        #         model_name, target_label, _ = parse_key(key)
+        #         # Assume dataset is the last part of the model name (e.g., "DNN_3_MNIST" -> "MNIST")
+        #         dataset = model_name.split("_")[-1]
+        #         dataset_label_to_models.setdefault((dataset, target_label), set()).add(model_name)
+        
+        # # Plot success rate for each (dataset, label) pair.
+        # for (dataset, target_label), models in dataset_label_to_models.items():
+        #     fig, ax = plt.subplots(figsize=(8, 6))
+        #     precisions = sorted(success_rates.keys())
+        #     for model in models:
+        #         y_values = []
+        #         for precision in precisions:
+        #             # Look for a key that matches the current model and target label (ignoring technique if present)
+        #             found_value = None
+        #             for key, value in success_rates[precision].items():
+        #                 m, t, _ = parse_key(key)
+        #                 if m == model and t == target_label:
+        #                     found_value = value * 100  # Convert to percentage
+        #                     break
+        #             y_values.append(found_value if found_value is not None else 0)
+        #         ax.plot(precisions, y_values, marker="o", label=model)
+            
+        #     ax.set_title(f"Success Rate for {dataset.upper()} - Label {target_label}", fontsize=14)
+        #     ax.set_xlabel("Fixed-Point Precision", fontsize=12)
+        #     ax.set_ylabel("Success Rate (%)", fontsize=12)
+        #     ax.grid(True, linestyle="--", alpha=0.6)
+        #     ax.legend(fontsize=10)
+            
+        #     png_filename = os.path.join(label_plots_dir, f"{dataset}_label_{target_label}_success_rate.png")
+        #     tikz_filename = os.path.join(label_plots_dir, f"{dataset}_label_{target_label}_success_rate.tex")
+        #     plt.savefig(png_filename)
+        #     try:
+        #         tikzplotlib.save(tikz_filename)
+        #     except Exception as e:
+        #         print(f"Could not save tikz file: {e}")
+        #     plt.close()
+        
+        # -------------------------------------------
+        # 2. Create average success rate per dataset.
+        # -------------------------------------------
+        # We need to average across labels for each model in each dataset.
+        # Structure: {dataset: {model: {precision: [list of success rates]}}}
+        dataset_model_rates = {}
+        for precision, rates in success_rates.items():
+            for key, rate in rates.items():
+                model_name, target_label, _ = parse_key(key)
+                dataset = model_name.split("_")[-1]
+                dataset_model_rates.setdefault(dataset, {}).setdefault(model_name, {}).setdefault(precision, []).append(rate)
+        
+        # Now compute the average success rate for each model and precision.
+        dataset_model_avg = {}
+        for dataset, models in dataset_model_rates.items():
+            dataset_model_avg.setdefault(dataset, {})
+            for model, prec_dict in models.items():
+                dataset_model_avg[dataset].setdefault(model, {})
+                for precision, rate_list in prec_dict.items():
+                    avg_rate = np.mean(rate_list)
+                    dataset_model_avg[dataset][model][precision] = avg_rate
+        
+        # Create an average plot for each dataset.
+        for dataset, models_data in dataset_model_avg.items():
+            fig, ax = plt.subplots(figsize=(8, 6))
+            precisions = sorted(success_rates.keys())
+            for model, prec_data in models_data.items():
+                y_values = [prec_data.get(precision, 0) * 100 for precision in precisions]
+                ax.plot(precisions, y_values, marker="o", label=model)
+            
+            ax.set_title(f"Average Success Rate for {dataset.upper()}", fontsize=14)
+            ax.set_xlabel("Fixed-Point Precision", fontsize=12)
+            ax.set_ylabel("Average Success Rate (%)", fontsize=12)
+            ax.grid(True, linestyle="--", alpha=0.6)
+            ax.legend(fontsize=10)
+            
+            png_filename = os.path.join(avg_plots_dir, f"{dataset}_average_success_rate.png")
+            tikz_filename = os.path.join(avg_plots_dir, f"{dataset}_average_success_rate.tex")
+            plt.savefig(png_filename)
+            try:
+                tikzplotlib.save(tikz_filename)
+            except Exception as e:
+                print(f"Could not save tikz file: {e}")
             plt.close()
 
     @staticmethod

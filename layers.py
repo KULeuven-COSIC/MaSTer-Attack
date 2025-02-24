@@ -105,6 +105,9 @@ class Dense:
             # print(attack_reference)
             if attack_type == 'optimisation_attack':
                 attack_matrix = encode_fixed(attack_reference, fixed_point)
+                if attack_matrix.ndim == 1:
+                    attack_matrix = np.expand_dims(attack_matrix, axis=0)
+
             else:
                 # attack_matrix = np.dot(encode_fixed(input_data, fixed_point), encode_fixed(self.weights[0], fixed_point))  / (2**fixed_point) - encode_fixed(attack_reference, fixed_point)
                 if realistic:
