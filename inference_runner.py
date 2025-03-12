@@ -131,7 +131,7 @@ class InferenceRunner:
             distances = np.linalg.norm(softmax(final_outputs) - one_hot_target, axis=1)
             best_idx = np.argmin(distances)
             rep_input = np.expand_dims(inputs[best_idx], axis=0)
-            print(softmax(model.forward(rep_input, return_all_outputs=return_all_outputs, fixed_point=fixed_point)[-1]))
+            # print(softmax(model.forward(rep_input, return_all_outputs=return_all_outputs, fixed_point=fixed_point)[-1]))
             return model.forward(rep_input, return_all_outputs=return_all_outputs, fixed_point=fixed_point)
 
         elif technique == 'random_sample':

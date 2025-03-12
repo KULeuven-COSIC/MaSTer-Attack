@@ -437,8 +437,8 @@ def train_all_models():
 
                 print(f"Percentage of non-zero labels misclassified as 0: {percentage_misclassified_to_zero:.2f}%")
 
-if __name__ == "__main__":
-    train_all_models()
+# if __name__ == "__main__":
+#     train_all_models()
     # train_mnist_models()
     # train_cifar10_models()
     # train_mitbih_models()

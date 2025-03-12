@@ -5,21 +5,13 @@ from attack_runner import AttackRunner
 from visualiser import Visualise
 from model_init import LABEL_RANGES
 
-if __name__ == '__main__':
+def run_attack(models_info, fixed_point_precisions, optimised, realistic, budget):
     # List of models to test.
-    models_info = [
-        # ("DNN_3_MNIST", "models/mnist/DNN_3_MNIST", "MNIST"),
-        ("DNN_5_MNIST", "models/mnist/DNN_5_MNIST", "MNIST"),
-        # ("DNN_7_MNIST", "models/mnist/DNN_7_MNIST", "MNIST"),
-        # ("DNN_9_MNIST", "models/mnist/DNN_9_MNIST", "MNIST"),
-        # ("DNN_3_CIFAR10", "models/cifar10/DNN_3_CIFAR10", "CIFAR10"),
-        ("DNN_5_CIFAR10", "models/cifar10/DNN_5_CIFAR10", "CIFAR10"),
-        # ("LeNet5_CIFAR10", "models/cifar10/LeNet5_CIFAR10", "CIFAR10"),
-        # ("DNN_3_MITBIH", "models/mitbih/DNN_3_MITBIH", "MITBIH"),
-        ("DNN_5_MITBIH", "models/mitbih/DNN_5_MITBIH", "MITBIH"),
-        ("DNN_5_VOICE", "models/voice/DNN_5_VOICE", "VOICE"),
-        ("DNN_5_OBESITY", "models/obesity/DNN_5_OBESITY", "OBESITY"),
-    ]
+    models_info = models_info
+    optimised = optimised
+    budget = budget
+    realistic = realistic
+    fixed_point_precisions = fixed_point_precisions
     
     attack_type = "layer_output_matching"
     
@@ -50,12 +42,6 @@ if __name__ == '__main__':
                     return_all_outputs=True,
                     technique=technique
                 )
-    
-    # Prepare to run the attack for various fixed-point precisions.
-    optimised = False
-    budget = False
-    realistic = True
-    fixed_point_precisions = [8, 9, 10, 11, 12, 13, 14, 15, 16]
     
     # Structure: success_rates[precision][key] where key is:
     # "modelName_label_targetLabel_tech_technique"
@@ -106,4 +92,7 @@ if __name__ == '__main__':
 
     Visualise.plot_success_rate_by_labels_and_datasets(success_rates, save_dir='label_plots/dest_attack')
     Visualise.plot_success_rate_by_models(success_rates, save_dir="model_plots/dest_attack")
+    """
+    In order to visualise techniques, uncomment all techniques to be examined, comment out all models except the one evaluated and uncomment the following visalisation
+    """
     # Visualise.plot_success_rate_by_models_techniques(success_rates, save_dir='technique_plots/dest_attack')

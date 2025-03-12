@@ -106,7 +106,7 @@ class Network:
                 data = layer.forward_attack(data, attack_type, attack_reference[i], fixed_point, optimised, budget, realistic, global_attack_budget=self.global_attack_budget)
                 self.layer_outputs.append(data)
                 i += 1
-                print('leftover budget: ', self.global_attack_budget)
+                # print('leftover budget: ', self.global_attack_budget)
             else:
                 data, data1 = layer.forward(data, return_all_outputs, fixed_point)
         

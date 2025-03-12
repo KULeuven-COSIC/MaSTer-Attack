@@ -6,24 +6,13 @@ from visualiser import Visualise
 from model_init import LABEL_RANGES
 
 # Main function
-if __name__ == '__main__':
-    models_info = [
-        # ("DNN_3_MNIST", "models/mnist/DNN_3_MNIST", "MNIST"),
-        ("DNN_5_MNIST", "models/mnist/DNN_5_MNIST", "MNIST"),
-        # ("DNN_7_MNIST", "models/mnist/DNN_7_MNIST", "MNIST"),
-        # ("DNN_3_CIFAR10", "models/cifar10/DNN_3_CIFAR10", "CIFAR10"),
-        # ("DNN_5_CIFAR10", "models/cifar10/DNN_5_CIFAR10", "CIFAR10"),
-        # ("DNN_3_MITBIH", "models/mitbih/DNN_3_MITBIH", "MITBIH"),
-        # ("DNN_5_MITBIH", "models/mitbih/DNN_5_MITBIH", "MITBIH"),
-        # ("DNN_5_VOICE", "models/voice/DNN_5_VOICE", "VOICE"),
-        # ("DNN_5_OBESITY", "models/obesity/DNN_5_OBESITY", "OBESITY"),
-    ]
+def run_attack(models_info, fixed_point_precisions, optimised, realistic, budget):
+    models_info = models_info
 
     attack_type = "optimisation_attack"
-    optimised=False
-
-    # Define the fixed-point precisions to test
-    fixed_point_precisions = [8, 9, 10, 11, 12, 13, 14, 15, 16]
+    optimised=optimised
+    fixed_point_precisions = fixed_point_precisions
+    budget=budget
 
     reference_matrices = {}
     success_rates = {precision: {} for precision in fixed_point_precisions}
@@ -47,7 +36,7 @@ if __name__ == '__main__':
                 # print(f"Running attack on {model_name} for label {target_label}")
                 ref_key = f"{model_name}_label_{target_label}_precision_{precision}"
                 key = f"{model_name}_label_{target_label}"
-                attack_rate[key] = AttackRunner.run_attack_on_all_models([model_name, model_path, dataset_name], target_label, return_all_outputs=False, attack_type=attack_type, attack_reference=reference_matrices[ref_key], fixed_point = precision, optimised=optimised, budget=False, realistic=False)
+                attack_rate[key] = AttackRunner.run_attack_on_all_models([model_name, model_path, dataset_name], target_label, return_all_outputs=False, attack_type=attack_type, attack_reference=reference_matrices[ref_key], fixed_point = precision, optimised=optimised, budget=budget, realistic=False)
     
                 # Determine the number of classes for interpretation
                 num_classes = len(label_range)
