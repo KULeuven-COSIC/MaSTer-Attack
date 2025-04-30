@@ -57,3 +57,14 @@ The script runs an attack on all specified models and fixed-point precisions as 
 ## Expected Output
 Training will save models in `models/`.
 Attack results will be stored in `model_plots/{attack_type}`.
+
+## Dataset Credits
+
+This project uses publicly available datasets for training and evaluation. We gratefully acknowledge the following sources:
+
+- **MNIST**: [http://yann.lecun.com/exdb/mnist/](http://yann.lecun.com/exdb/mnist/)
+- **CIFAR-10**: [https://www.cs.toronto.edu/~kriz/cifar.html](https://www.cs.toronto.edu/~kriz/cifar.html)
+- **ECG**: MITBIH: [https://www.physionet.org/content/mitdb/1.0.0/](https://www.physionet.org/content/mitdb/1.0.0/), PTB: [https://www.physionet.org/content/ptbdb/1.0.0/](https://www.physionet.org/content/ptbdb/1.0.0/)
+- **VOICE**: [https://www.kaggle.com/datasets/primaryobjects/voicegender](https://www.kaggle.com/datasets/primaryobjects/voicegender)
+- **OBESITY**: [https://www.kaggle.com/datasets/fatemehmehrparvar/obesity-levels](https://www.kaggle.com/datasets/fatemehmehrparvar/obesity-levels)
+
